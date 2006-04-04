@@ -1,0 +1,170 @@
+<!--
+/*
+ * Copyright 2006 Jason Hunter and Ryan Grimm
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * The use of the Apache License does not indicate that this project is
+ * affiliated with the Apache Software Foundation.
+ */
+-->
+
+<project name="mlsql" default="all" basedir=".">
+
+	<property name="product.name" value="mlsql"/>
+	<property name="release.version" value="1.0"/>
+
+	<!-- Static definitions of where things are relative to the root -->
+	<property name="java.source" value="server/src"/>
+	<property name="doc.source" value="."/>
+	<property name="buildtmp" value="buildtmp"/>
+	<property name="compiled.classes.dir" value="${buildtmp}/classes"/>
+<!--
+  <property name="generated.files" value="${buildtmp}/generated"/>
+-->
+	<property name="javadoc.dir" value="${buildtmp}/mlsql/javadocs"/>
+	<property name="web.dir" value="${buildtmp}/mlsql/WEB-INF"/>
+	<property name="weblib.dir" value="${buildtmp}/mlsql/WEB-INF/lib"/>
+
+	<property name="web.files" value="server/WEB-INF"/>
+	<property name="xqy.files" value="client"/>
+
+	<!-- Jar files that are under source control in this tree -->
+	<property name="jarlib" value="server/lib"/>
+	<property name="jaxen-core.jar" value="${jarlib}/jaxen-core.jar"/>
+	<property name="jaxen-jdom.jar" value="${jarlib}/jaxen-jdom.jar"/>
+	<property name="jdom.jar" value="${jarlib}/jdom.jar"/>
+	<property name="saxpath.jar" value="${jarlib}/saxpath.jar"/>
+	<property name="servlet-api.jar" value="${jarlib}/servlet-api.jar"/>
+
+	<!-- Intermediate generated files -->
+<!--
+	<property name="javadoc.zipfile" value="${generated.files}/${product.name}-api.zip"/>
+-->
+	<property name="code.output.jar" value="${weblib.dir}/${product.name}.jar"/>
+
+	<!-- Products of this build -->
+	<property name="products" value="deliverable"/>
+	<property name="release.bundle" value="${products}/${product.name}-${release.version}.zip"/>
+	<property name="source.bundle" value="${products}/${product.name}-src-${release.version}.zip"/>
+
+	<!-- Configurable flags that will affect how targets run -->
+	<property name="compile.debug.symbols.flag" value="on"/>	<!-- on | off -->
+	<property name="junit.halt.on.error" value="off"/>		<!-- on | off -->
+	<property name="junit.disabled" value="true"/>			<!-- true | false -->
+
+	<!-- ********************************************************** -->
+
+
+	<target name="init">
+		<mkdir dir="${buildtmp}"/>
+		<mkdir dir="${compiled.classes.dir}"/>
+<!--
+    <mkdir dir="${generated.files}"/>
+-->
+		<mkdir dir="${web.dir}"/>
+		<mkdir dir="${weblib.dir}"/>
+		<mkdir dir="${products}"/>
+	</target>
+
+	<target name="clean">
+		<delete dir="${buildtmp}"/>
+	</target>
+
+	<target name="cleanest" depends="clean">
+		<delete dir="${products}"/>
+	</target>
+
+	<!-- ********************************************************** -->
+
+	<path id="code.compile.classpath">
+		<pathelement path="${jaxen-core.jar}"/>
+		<pathelement path="${jaxen-jdom.jar}"/>
+		<pathelement path="${jdom.jar}"/>
+		<pathelement path="${saxpath.jar}"/>
+		<pathelement path="${servlet-api.jar}"/>
+		<pathelement path="${compiled.classes.dir}"/>
+	</path>
+
+	<target name="compile.code" depends="init">
+		<javac classpathref="code.compile.classpath" srcdir="${java.source}"
+			destdir="${compiled.classes.dir}" deprecation="on"
+			debug="${compile.debug.symbols.flag}" />
+	</target>
+
+  <target name="generate.code.jar" depends="compile.code">
+    <jar jarfile="${code.output.jar}">
+      <fileset dir="${compiled.classes.dir}">
+        <exclude name="**/Test*.class"/>
+      </fileset>
+    </jar>
+  </target>
+
+  <target name="code" depends="generate.code.jar"/>
+
+  <target name="web">
+		<copy todir="${web.dir}">
+      <fileset dir="${web.files}"/>
+		</copy>
+		<copy todir="${weblib.dir}">
+      <fileset dir="${jarlib}">
+        <exclude name="**/servlet-api.jar"/>
+      </fileset>
+    </copy>
+  </target>
+
+	<!-- ********************************************************** -->
+
+	<target name="javadoc" depends="code">
+		<mkdir dir="${javadoc.dir}"/>
+		<javadoc sourcepath="${java.source}" destdir="${javadoc.dir}" packagenames="*"
+			author="true" version="true" windowtitle="MLSQL">
+
+			<classpath refid="code.compile.classpath"/>
+			<doctitle><![CDATA[<h1>MLSQL Web Service</h1>]]></doctitle>
+			<bottom><![CDATA[<i>Copyright &copy; 2006 Jason Hunter and Ryan Grimm, Licensed Under Apache 2.0</i>]]></bottom>
+		</javadoc>
+
+    <!--
+		<zip zipfile="${javadoc.zipfile}" basedir="${javadoc.dir}"/>
+    -->
+	</target>
+
+	<!-- ********************************************************** -->
+
+	<target name="binarybundle" depends="init,code,web"> <!-- removed javadoc -->
+		<zip zipfile="${release.bundle}">
+			<fileset dir="${buildtmp}">
+				<include name="mlsql/**"/>
+			</fileset>
+      <fileset dir="${xqy.files}"/>
+		</zip>
+	</target>
+
+	<target name="srcbundle">
+		<zip zipfile="${source.bundle}">
+			<fileset file="build.xml"/>
+			<fileset file="README.txt"/>
+			<fileset dir=".">
+				<include name="client/**"/>
+				<include name="server/**"/>
+			</fileset>
+		</zip>
+	</target>
+
+	<!-- ********************************************************** -->
+
+	<target name="all" depends="binarybundle,srcbundle">
+	</target>
+
+</project>
