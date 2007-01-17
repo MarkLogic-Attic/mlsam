@@ -24,7 +24,11 @@ package com.xqdev.sql;
 import java.io.*;
 import java.sql.*;
 import java.util.*;
+import java.util.Date;
 import java.net.*;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.text.ParseException;
 import javax.servlet.http.*;
 import javax.servlet.*;
 import org.jdom.input.SAXBuilder;
@@ -43,6 +47,13 @@ import org.jdom.output.XMLOutputter;
 public class MLSQL extends HttpServlet {
 
   private ConnectionPool pool = null;
+
+  private static final String ISO_DATE_PATTERN = "yyyy-MM-ddZ";
+  private static final DateFormat DATE_PARSER = new SimpleDateFormat(ISO_DATE_PATTERN);
+  private static final String ISO_TIME_PATTERN = "HH:mm:ss.SSSZ";
+  private static final DateFormat TIME_PARSER = new SimpleDateFormat(ISO_TIME_PATTERN);
+  private static final String ISO_DATETIME_PATTERN = "yyyy-MM-dd'T'HH:mm:ss.SSSZ";
+  private static final DateFormat DATETIME_PARSER = new SimpleDateFormat(ISO_DATETIME_PATTERN);
 
   static String TRY_DATABASE_CONNECTION = "select 1";
 
@@ -104,13 +115,11 @@ public class MLSQL extends HttpServlet {
       if (postbody != null) {
         SAXBuilder builder = new SAXBuilder();
         requestDoc = builder.build(new StringReader(postbody));
-//Log.log("Incoming: " + new XMLOutputter().outputString(requestDoc));
       }
       else {
         InputStream in = req.getInputStream();
         SAXBuilder builder = new SAXBuilder();
         requestDoc = builder.build(in);
-//Log.log("Incoming: " + new XMLOutputter().outputString(requestDoc));
       }
     }
     catch (Exception e) {
@@ -119,7 +128,6 @@ public class MLSQL extends HttpServlet {
       OutputStream out = res.getOutputStream();
       new XMLOutputter().output(responseDoc, out);
       out.flush();
-//Log.log("Returned: " + new XMLOutputter().outputString(responseDoc));
       return;
     }
 
@@ -137,9 +145,18 @@ public class MLSQL extends HttpServlet {
 
       con = pool.getConnection();
 
-      PreparedStatement stmt = con.prepareStatement(query, Statement.RETURN_GENERATED_KEYS);
+      PreparedStatement stmt = null;
+
+      if (type.equalsIgnoreCase("procedure")) {
+        stmt = con.prepareCall(query);
+      }
+      else {
+        // Note this call depends on JDBC 3.0 (accompanying Java 1.4).
+        // The call without the 2nd argument would work on earlier JVMs,
+        // you just won't catch any generated keys.
+        stmt = con.prepareStatement(query, Statement.RETURN_GENERATED_KEYS);
+      }
       configureStatement(stmt, maxRows, queryTimeout, maxFieldSize);
-//Log.log("params: " + params);
       parameterizeStatement(stmt, params);
 
       if (type.equalsIgnoreCase("select")) {
@@ -162,6 +179,17 @@ public class MLSQL extends HttpServlet {
         }
         catch (SQLException e) {
           addExceptions(meta, e);
+        }
+      }
+      else if (type.equalsIgnoreCase("procedure")) {
+        CallableStatement callableStmt = (CallableStatement) stmt;
+        boolean isResultSet = stmt.execute();
+        if (isResultSet) {
+          addResultSet(root, stmt.getResultSet());
+          addOutParam(root, stmt, params);
+        }
+        else {
+          addOutParam(root, stmt, params);
         }
       }
       else {
@@ -191,7 +219,22 @@ public class MLSQL extends HttpServlet {
     OutputStream out = res.getOutputStream();
     new XMLOutputter().output(responseDoc, out);
     out.flush();
-//Log.log("Returned: " + new XMLOutputter().outputString(responseDoc));
+  }
+
+  private static void addOutParam(Element root, PreparedStatement stmt, List<Element> params) throws SQLException {
+    Namespace sql = root.getNamespace();
+    CallableStatement callableStmt = (CallableStatement) stmt;
+
+    for (int i = 1; i < params.size() + 1; i++) {
+      Element element = params.get(i - 1);
+      String out = element.getAttributeValue("out");
+      if (out != null && out.equalsIgnoreCase("true")) {
+        Element parameter = new Element("parameter", sql);
+        parameter.setAttribute("index", String.valueOf(i));
+        parameter.setAttribute("value", String.valueOf(callableStmt.getInt(i)));
+        root.addContent(parameter);
+      }
+    }
   }
 
   private static void addUpdateCount(Element meta, int count) {
@@ -289,7 +332,6 @@ public class MLSQL extends HttpServlet {
                       .addContent(new Element("sql-state", sql).setText(e.getSQLState()))
                       .addContent(new Element("vendor-code", sql).setText("" + e.getErrorCode()))
       );
-//Log.log(e);
       e = e.getNextException();
     } while (e != null);
   }
@@ -308,7 +350,6 @@ public class MLSQL extends HttpServlet {
                       .addContent(new Element("sql-state", sql).setText(w.getSQLState()))
                       .addContent(new Element("vendor-code", sql).setText("" + w.getErrorCode()))
       );
-//Log.log(w);
       w = w.getNextWarning();
     } while (w != null);
   }
@@ -327,7 +368,7 @@ public class MLSQL extends HttpServlet {
   }
 
   private static void parameterizeStatement(PreparedStatement stmt, List<Element> params)
-          throws SQLException, MalformedURLException, NumberFormatException {
+          throws SQLException, MalformedURLException, NumberFormatException, ParseException {
     // Presently we accept these types:
     // boolean, date, double, float, int,
     // long, short, string, time, timestamp.
@@ -337,59 +378,132 @@ public class MLSQL extends HttpServlet {
     for (Element param : params) {
       paramPosition++;
       String paramType = param.getAttributeValue("type");
-      String paramValue = param.getText();
-      boolean paramNull = "true".equalsIgnoreCase(param.getAttributeValue("null"));
+      String outType = param.getAttributeValue("out");
 
-      if (paramType == null) {
-        String s = "Null parameter type received: " + paramType + " with value: " + paramValue;
-        Log.log(s);
-        throw new RuntimeException(s);
-      }
-      else if (paramType.equalsIgnoreCase("boolean")) {
-        if (paramNull) { stmt.setNull(paramPosition, Types.BOOLEAN); }  // MySQL seems to ignore types
-        else { stmt.setBoolean(paramPosition, new Boolean(paramValue).booleanValue()); }
-      }
-      else if (paramType.equalsIgnoreCase("date")) {  // dates come as long values
-        if (paramNull) { stmt.setNull(paramPosition, Types.DATE); }
-        else { stmt.setDate(paramPosition, new java.sql.Date(new Long(paramValue))); }
-      }
-      else if (paramType.equalsIgnoreCase("double")) {
-        if (paramNull) { stmt.setNull(paramPosition, Types.DOUBLE); }
-        else { stmt.setDouble(paramPosition, new Double(paramValue)); }
-      }
-      else if (paramType.equalsIgnoreCase("float")) {
-        if (paramNull) { stmt.setNull(paramPosition, Types.FLOAT); }
-        else { stmt.setFloat(paramPosition, new Float(paramValue)); }
-      }
-      else if (paramType.equalsIgnoreCase("int")) {
-        if (paramNull) { stmt.setNull(paramPosition, Types.INTEGER); }
-        else { stmt.setInt(paramPosition, new Integer(paramValue)); }
-      }
-      else if (paramType.equalsIgnoreCase("long")) {
-        if (paramNull) { stmt.setNull(paramPosition, Types.BIGINT); }
-        else { stmt.setLong(paramPosition, new Long(paramValue)); }
-      }
-      else if (paramType.equalsIgnoreCase("short")) {
-        if (paramNull) { stmt.setNull(paramPosition, Types.SMALLINT); }
-        else { stmt.setShort(paramPosition, new Short(paramValue)); }
-      }
-      else if (paramType.equalsIgnoreCase("string")) {
-        if (paramNull) { stmt.setNull(paramPosition, Types.VARCHAR); }
-        else { stmt.setString(paramPosition, paramValue); }
-      }
-      else if (paramType.equalsIgnoreCase("time")) {
-        if (paramNull) { stmt.setNull(paramPosition, Types.TIME); }
-        else { stmt.setTime(paramPosition, new java.sql.Time(new Long(paramValue))); }
-      }
-      else if (paramType.equalsIgnoreCase("timestamp")) {
-        if (paramNull) { stmt.setNull(paramPosition, Types.TIMESTAMP); }
-        else { stmt.setTimestamp(paramPosition, new java.sql.Timestamp(new Long(paramValue))); }
+      if (outType != null && outType.equalsIgnoreCase("true")) {
+        if (!(stmt instanceof CallableStatement)) {
+            String s = "Out parameters only allowed on stored procedures";
+            Log.log(s);
+            throw new RuntimeException(s);
+        }
+
+        ((CallableStatement)stmt).registerOutParameter(paramPosition, getSqlDataType(paramType));
       }
       else {
-        String s = "Unknown parameter type received: " + paramType + " with value: " + paramValue;
-        Log.log(s);
-        throw new RuntimeException(s);
+        String paramValue = param.getText();
+        boolean paramNull = "true".equalsIgnoreCase(param.getAttributeValue("null"));
+
+        if (paramType == null) {
+          String s = "No parameter type received: " + paramType + " with value: " + paramValue;
+          Log.log(s);
+          throw new RuntimeException(s);
+        }
+        else if (paramType.equalsIgnoreCase("boolean")) {
+          if (paramNull) { stmt.setNull(paramPosition, Types.BOOLEAN); }  // MySQL seems to ignore types
+          else { stmt.setBoolean(paramPosition, new Boolean(paramValue).booleanValue()); }
+        }
+        else if (paramType.equalsIgnoreCase("date")) {  // dates come as long values
+          if (paramNull) { stmt.setNull(paramPosition, Types.DATE); }
+          else {
+            int lastIndex = paramValue.lastIndexOf(':');
+            String fixedFormat = paramValue.substring(0, lastIndex) +
+                    paramValue.substring(lastIndex + 1, paramValue.length());
+
+            Date date = DATE_PARSER.parse(fixedFormat);
+            stmt.setDate(paramPosition, new java.sql.Date(date.getTime()));
+          }
+        }
+        else if (paramType.equalsIgnoreCase("double")) {
+          if (paramNull) { stmt.setNull(paramPosition, Types.DOUBLE); }
+          else { stmt.setDouble(paramPosition, new Double(paramValue)); }
+        }
+        else if (paramType.equalsIgnoreCase("float")) {
+          if (paramNull) { stmt.setNull(paramPosition, Types.FLOAT); }
+          else { stmt.setFloat(paramPosition, new Float(paramValue)); }
+        }
+        else if (paramType.equalsIgnoreCase("int")) {
+          if (paramNull) { stmt.setNull(paramPosition, Types.INTEGER); }
+          else { stmt.setInt(paramPosition, new Integer(paramValue)); }
+        }
+        else if (paramType.equalsIgnoreCase("long")) {
+          if (paramNull) { stmt.setNull(paramPosition, Types.BIGINT); }
+          else { stmt.setLong(paramPosition, new Long(paramValue)); }
+        }
+        else if (paramType.equalsIgnoreCase("short")) {
+          if (paramNull) { stmt.setNull(paramPosition, Types.SMALLINT); }
+          else { stmt.setShort(paramPosition, new Short(paramValue)); }
+        }
+        else if (paramType.equalsIgnoreCase("string")) {
+          if (paramNull) { stmt.setNull(paramPosition, Types.VARCHAR); }
+          else { stmt.setString(paramPosition, paramValue); }
+        }
+        else if (paramType.equalsIgnoreCase("time")) {
+          if (paramNull) { stmt.setNull(paramPosition, Types.TIME); }
+          else {
+            int lastIndex = paramValue.lastIndexOf(':');
+            String fixedFormat = paramValue.substring(0, lastIndex) +
+                    paramValue.substring(lastIndex + 1, paramValue.length());
+            Date date = TIME_PARSER.parse(fixedFormat);
+            stmt.setTime(paramPosition, new java.sql.Time(date.getTime()));
+          }
+        }
+        else if (paramType.equalsIgnoreCase("timestamp")) {
+          if (paramNull) { stmt.setNull(paramPosition, Types.TIMESTAMP); }
+          else {
+            int lastIndex = paramValue.lastIndexOf(':');
+            String fixedFormat = paramValue.substring(0, lastIndex) +
+                    paramValue.substring(lastIndex + 1, paramValue.length());
+            Date date = DATETIME_PARSER.parse(fixedFormat);
+            stmt.setTimestamp(paramPosition, new java.sql.Timestamp(date.getTime()));
+          }
+        }
+        // blob is not supported but we do want to allow for null blob parameters
+        else if (paramType.equalsIgnoreCase("blob")) {
+          stmt.setNull(paramPosition, Types.BLOB);
+        }
+        // longvarbinary is not supported but we do want to allow for null longvarbinary parameters
+        else if (paramType.equalsIgnoreCase("longvarbinary")) {
+          stmt.setNull(paramPosition, Types.LONGVARBINARY);
+        }
+        else {
+          String s = "Unknown parameter type received: " + paramType + " with value: " + paramValue;
+          Log.log(s);
+          throw new RuntimeException(s);
+        }
       }
     }
   }
+
+    private static int getSqlDataType(String type)
+    {
+        if (type.equalsIgnoreCase("boolean"))
+          return Types.BOOLEAN;
+        else if (type.equalsIgnoreCase("date"))
+          return Types.DATE;
+        else if (type.equalsIgnoreCase("double"))
+          return Types.DOUBLE;
+        else if (type.equalsIgnoreCase("float"))
+          return Types.FLOAT;
+        else if (type.equalsIgnoreCase("int"))
+          return Types.INTEGER;
+        else if (type.equalsIgnoreCase("long"))
+          return Types.BIGINT;
+        else if (type.equalsIgnoreCase("short"))
+          return Types.SMALLINT;
+        else if (type.equalsIgnoreCase("string"))
+          return Types.VARCHAR;
+        else if (type.equalsIgnoreCase("time"))
+          return Types.TIME;
+        else if (type.equalsIgnoreCase("timestamp"))
+            return Types.TIMESTAMP;
+        else if (type.equalsIgnoreCase("blob"))
+            return Types.BLOB;
+        else if (type.equalsIgnoreCase("longvarbinary"))
+            return Types.LONGVARBINARY;
+        else {
+            String s = "Unknown parameter type received: " + type + ".";
+            Log.log(s);
+            throw new RuntimeException(s);
+        }
+    }
 }
