@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE web-app PUBLIC "-//Sun Microsystems, Inc.//DTD Web Application 2.3//EN"
+http://java.sun.com/dtd/web-app_2_3.dtd">
+<web-app>
+
+  <servlet>
+    <servlet-name>mlsql</servlet-name>
+    <servlet-class>com.xqdev.sql.MLSQL</servlet-class>
+    <init-param>
+      <param-name>driver</param-name>
+      <param-value>com.sybase.jdbcx.SybDriver</param-value>
+      <description>The JDBC driver class to use</description>
+    </init-param>
+    <init-param>
+      <param-name>url</param-name>
+      <param-value>jdbc:sybase:Tds:HOSTNAME:PORT/YOURDBNAME</param-value>
+      <description>The JDBC connect string to use</description>
+    </init-param>
+    <init-param>
+      <param-name>user</param-name>
+      <param-value>youruser</param-value>
+      <description>Username, if not inclued in URL, otherwise leave blank</description>
+    </init-param>
+    <init-param>
+      <param-name>password</param-name>
+      <param-value>yourpass</param-value>
+      <description>Password, if not inclued in URL, otherwise leave blank</description>
+    </init-param>
+  </servlet>
+  <servlet-mapping>
+    <servlet-name>mlsql</servlet-name>
+    <url-pattern>/mlsql</url-pattern>
+  </servlet-mapping>
+
+</web-app>
