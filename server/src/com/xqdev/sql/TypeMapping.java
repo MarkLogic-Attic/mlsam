@@ -200,7 +200,7 @@ class TypeMapping {
         stmt.setTimestamp(paramPosition, new Timestamp(date.getTime()));
       }
     }
-   // blob is not supported but we do want to allow for null blob parameters
+    // blob is not supported but we do want to allow for null blob parameters
     else if (paramType.equalsIgnoreCase("blob")) {
       stmt.setNull(paramPosition, Types.BLOB);
     }
