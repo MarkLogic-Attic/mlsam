@@ -163,8 +163,13 @@ public class MLSQL extends HttpServlet {
           int count = stmt.executeUpdate();
           addWarnings(meta, stmt.getWarnings());
           addUpdateCount(meta, count);
-          stmt.getGeneratedKeys();
-          addGeneratedKeys(meta, stmt.getGeneratedKeys());
+          try {
+            addGeneratedKeys(meta, stmt.getGeneratedKeys());
+          }
+          catch (SQLException e) {
+            // Generated keys are available on INSERT calls but not UPDATE calls
+            // So catch and eat the exception that Oracle (and maybe others) will throw
+          }
         }
         catch (SQLException e) {
           addExceptions(meta, e);
