@@ -8,12 +8,12 @@
     <servlet-class>com.xqdev.sql.MLSQL</servlet-class>
     <init-param>
       <param-name>driver</param-name>
-      <param-value>com.microsoft.jdbc.sqlserver.SQLServerDriver</param-value>
+      <param-value>com.microsoft.sqlserver.jdbc.SQLServerDriver</param-value>
       <description>The JDBC driver class to use</description>
     </init-param>
     <init-param>
       <param-name>url</param-name>
-      <param-value>jdbc:microsoft:sqlserver://localhost:1433;DatabaseName=yourdbname</param-value>
+      <param-value>jdbc:sqlserver://localhost:1433;DatabaseName=yourdbname</param-value>
       <description>The JDBC connect string to use</description>
     </init-param>
     <init-param>
