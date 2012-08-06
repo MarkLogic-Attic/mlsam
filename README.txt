@@ -23,7 +23,7 @@ queries as described in the tutorial.
 Building
 --------
 
-Just run "ant".  It produces zip files under the "distribution" directory and
+Just run "ant".  It produces zip files under the "deliverable" directory and
 a "buildtmp" support directory.
 
 
