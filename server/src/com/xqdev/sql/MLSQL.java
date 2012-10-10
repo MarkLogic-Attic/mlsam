@@ -30,6 +30,7 @@ import javax.servlet.*;
 import org.jdom.input.SAXBuilder;
 import org.jdom.*;
 import org.jdom.output.XMLOutputter;
+import org.apache.commons.codec.binary.Base64;
 
 /**
  * Main class for supporting the sql.xqy client.
@@ -156,6 +157,7 @@ public class MLSQL extends HttpServlet {
         }
         catch (SQLException e) {
           addExceptions(meta, e);
+          Log.log(e);
         }
       }
       else if (type.equalsIgnoreCase("update")) {
@@ -201,6 +203,8 @@ public class MLSQL extends HttpServlet {
           addExceptions(meta, e);
         }
       }
+      // Close the statement holding the connection to the JDBC Server
+      stmt.close();
     }
     catch (Exception e) {
       addExceptions(meta, e);
@@ -258,7 +262,19 @@ public class MLSQL extends HttpServlet {
       for (int i = 1; i <= columnCount; i++) {
         String colName = rsmd.getColumnName(i);  // names aren't guaranteed OK in xml
         String colTypeName = rsmd.getColumnTypeName(i);
-        String colValue = rs.getString(i);
+        
+        // Decode a BLOB if one is found and place it into the result as a encoded Base 64 string
+        String colValue = "";
+        if ("BLOB".equalsIgnoreCase(colTypeName)) {
+            Blob b = rs.getBlob(i);
+            Base64 b64 = new Base64();
+            String b64Blob = b64.encodeBase64String(b.getBytes(1, (int) b.length()));
+            colValue = b64Blob;
+        } else {
+            colValue = rs.getString(i);
+        }
+        
+        
         boolean wasNull = rs.wasNull();
         Element elt = new Element(colName);
         if (wasNull) {
@@ -273,6 +289,7 @@ public class MLSQL extends HttpServlet {
       }
       root.addContent(tuple);
     }
+    
   }
 
   private static void addExceptions(Element meta, Throwable t) {

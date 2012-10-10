@@ -46,6 +46,7 @@
 	<property name="jdom.jar" value="${jarlib}/jdom.jar"/>
 	<property name="saxpath.jar" value="${jarlib}/saxpath.jar"/>
 	<property name="servlet-api.jar" value="${jarlib}/servlet-api.jar"/>
+	<property name="commons-codec.jar" value="${jarlib}/commons-codec-1.6.jar"/>
 
 	<!-- Intermediate generated files -->
 <!--
@@ -93,6 +94,7 @@
 		<pathelement path="${jdom.jar}"/>
 		<pathelement path="${saxpath.jar}"/>
 		<pathelement path="${servlet-api.jar}"/>
+		<pathelement path="${commons-codec.jar}"/>
 		<pathelement path="${compiled.classes.dir}"/>
 	</path>
 
