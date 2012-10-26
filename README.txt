@@ -1,9 +1,13 @@
-MLSQL is an open source library that allows easy access to relational database
+MLSAM is an open source library that allows easy access to relational database
 systems from within the MarkLogic environment.
 
-The MLSQL Tutorial has more information:
-http://developer.marklogic.com/learn/2006-04-mlsql.xqy
+If you are looking for SQL access to a MarkLogic database,
+please see http://docs.marklogic.com/guide/sql
 
+The MLSAM Tutorial has more information:
+http://developer.marklogic.com/learn/2006-04-mlsam.xqy
+
+(MLSAM was originally named MLSQL).  
 
 Source Components
 -----------------
