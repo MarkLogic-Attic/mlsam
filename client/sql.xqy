@@ -4,7 +4,7 @@ xquery version "0.9-ml"
  : Mark Logic Interface to Relational Databases
  :
  : For a tutorial please see
- : http://xqzone.marklogic.com/howto/tutorials/2006-04-mlsql.xqy.
+ : http://xqzone.marklogic.com/howto/tutorials/2006-04-mlsam.xqy.
  :
  : Copyright 2006-2007 Jason Hunter, Ryan Grimm, and Will LaForest
  :
@@ -33,7 +33,7 @@ default function namespace = "http://www.w3.org/2003/05/xpath-functions"
  : Executes the SQL statement specified in $query.
  :
  : (For a tutorial please see
- : http://xqzone.marklogic.com/howto/tutorials/2006-04-mlsql.xqy)
+ : http://xqzone.marklogic.com/howto/tutorials/2006-04-mlsam.xqy)
  :
  : @param $query The SQL query to be executed
  :
