@@ -2,7 +2,7 @@ MLSQL is an open source library that allows easy access to relational database
 systems from within the MarkLogic environment.
 
 The MLSQL Tutorial has more information:
-http://xqzone.marklogic.com/howto/tutorials/2006-04-mlsql.xqy
+http://developer.marklogic.com/learn/2006-04-mlsql.xqy
 
 
 Source Components
