@@ -22,7 +22,7 @@
 <project name="mlsam" default="all" basedir=".">
 
 	<property name="product.name" value="mlsam"/>
-	<property name="release.version" value="1.0"/>
+	<property name="release.version" value="1.1"/>
 
 	<!-- Static definitions of where things are relative to the root -->
 	<property name="java.source" value="server/src"/>
