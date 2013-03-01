@@ -267,9 +267,12 @@ public class MLSQL extends HttpServlet {
         String colValue = "";
         if ("BLOB".equalsIgnoreCase(colTypeName)) {
             Blob b = rs.getBlob(i);
-            Base64 b64 = new Base64();
-            String b64Blob = b64.encodeBase64String(b.getBytes(1, (int) b.length()));
-            colValue = b64Blob;
+            if (b != null && b.length() > 0) {
+                Base64 b64 = new Base64();
+                String b64Blob = b64.encodeBase64String(b.getBytes(1, (int) b.length()));
+                colValue = b64Blob;
+            } else
+                colValue = "";
         } else {
             colValue = rs.getString(i);
         }
